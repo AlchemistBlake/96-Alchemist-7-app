@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>96-Alchemist-7 · Kinematic Player</title>
+<meta name="sig" content="BWA_15.2003075_SOV_96.7Hz_SHA-BEWA_69912070">
+<style>
+body{margin:0;background:#0b0f17;color:#d8e1f0;font:14px system-ui,sans-serif;display:flex;gap:16px;padding:16px}
+#side{width:340px;display:flex;flex-direction:column;gap:8px}
+textarea{height:300px;background:#121a27;color:#d8e1f0;border:1px solid #2a3850;font:12px monospace}
+button{background:#2b5cff;color:#fff;border:0;padding:8px;border-radius:6px;cursor:pointer}
+button:disabled{opacity:.4}
+code{word-break:break-all;font-size:11px}
+canvas{background:#000;border:1px solid #2a3850}
+</style></head><body>
+<div id="side">
+  <b>96-Alchemist-7 · Kinematic Player</b>
+  <label>Job JSON (schema_version 1, mode kinematic)
+    <input type="file" id="file" accept=".json"></label>
+  <textarea id="job"></textarea>
+  <button id="replay">Replay (state hash only)</button>
+  <button id="record">Replay + record WebM</button>
+  <div id="out"></div>
+</div>
+<canvas id="cv" width="640" height="360"></canvas>
+<script src="sim.js"></script>
+<script>
+'use strict';
+const EXAMPLE = {"schema_version":1,"id":"job_0002","mode":"kinematic","status":"queued","duration_s":2,"fps":30,
+ "created_at":"2026-11-06T18:00:00Z","updated_at":"2026-11-06T18:00:00Z","error":null,"worker_id":null,"attempts":0,
+ "max_attempts":3,"heartbeat_at":null,"lease_s":600,"segments":[],"output_url":null,
+ "provenance":{"model":null,"model_version":null,"seed":967,"sha256":null},
+ "sig":"BWA_15.2003075_SOV_96.7Hz_SHA-BEWA_69912070",
+ "core_event":{"action":"cast_spell","caster":"alchemist","target":"enemy_1","fx_tag":"fire_burst","result_hp":45},
+ "vdsb_commands":[{"at_frame":0,"command":"ui_lock","state":true},
+  {"at_frame":0,"command":"play_anim","target":"alchemist","asset_tag":"cast_magic","duration_frames":24},
+  {"at_frame":18,"command":"spawn_fx","target":"enemy_1","asset_tag":"fire_burst","duration_frames":30},
+  {"at_frame":36,"command":"ui_update_hp","target":"enemy_1","value":45},
+  {"at_frame":59,"command":"ui_lock","state":false}]};
+const $ = id => document.getElementById(id);
+$('job').value = JSON.stringify(EXAMPLE, null, 1);
+$('file').onchange = async e => { $('job').value = await e.target.files[0].text(); };
+const cv = $('cv'), g = cv.getContext('2d');
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const enc = new TextEncoder();
+const sha = async data => hex(await crypto.subtle.digest('SHA-256', typeof data === 'string' ? enc.encode(data) : data));
+
+// Renderer: reads sim state only; never writes it. Pixels are NOT part of the determinism proof (M-014).
+function draw(s) {
+  g.fillStyle = '#0d1424'; g.fillRect(0, 0, 640, 360);
+  const pos = e => ({ x: 120 + e.slot * 400 / Math.max(1, s.entities.length - 1), y: 220 });
+  for (const e of s.entities) {
+    const p = pos(e), a = e.anim, t = a ? (s.frame - a.start) / (a.end - a.start) : 0;
+    g.fillStyle = a ? '#ffb347' : '#6aa0ff';
+    g.beginPath(); g.arc(p.x, p.y - (a ? Math.sin(t * Math.PI) * 20 : 0), 34, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#222'; g.fillRect(p.x - 40, p.y - 70, 80, 8);
+    g.fillStyle = '#3ddc84'; g.fillRect(p.x - 40, p.y - 70, 80 * e.hp / 100, 8);
+    g.fillStyle = '#d8e1f0'; g.font = '12px monospace'; g.textAlign = 'center';
+    g.fillText(e.id + (a ? ' · ' + a.tag : ''), p.x, p.y + 56);
+  }
+  for (const x of s.fx) {
+    const e = s.entities.find(q => q.id === x.target), p = pos(e);
+    g.fillStyle = '#ff5a36';
+    for (const q of x.parts) g.fillRect(p.x + q.x / Kinematic.FP, p.y + q.y / Kinematic.FP, 4, 4);
+  }
+  g.fillStyle = '#8aa'; g.textAlign = 'left';
+  g.fillText(`frame ${s.frame}/${s.total - 1}  ui_locked=${s.ui_locked}`, 10, 20);
+}
+
+async function run(record) {
+  $('out').innerHTML = ''; $('replay').disabled = $('record').disabled = true;
+  try {
+    const job = JSON.parse($('job').value);
+    const sim = Kinematic.createSim(job);
+    let rec, chunks = [], track;
+    if (record) {
+      const stream = cv.captureStream(0); track = stream.getVideoTracks()[0];
+      rec = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      rec.ondataavailable = e => e.data.size && chunks.push(e.data); rec.start();
+    }
+    const frameHashes = [];
+    const dt = 1000 / job.fps;
+    while (sim.step()) {
+      frameHashes.push(await sha(sim.serialize()));
+      draw(sim.state);
+      if (record) { track.requestFrame(); await new Promise(r => setTimeout(r, dt)); }
+    }
+    const chain = await sha(frameHashes.join(''));
+    let html = `<p>frames: ${frameHashes.length}</p><p>state chain hash (determinism proof):<br><code>${chain}</code></p>`;
+    if (record) {
+      await new Promise(r => { rec.onstop = r; rec.stop(); });
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const outSha = await sha(await blob.arrayBuffer());
+      const url = URL.createObjectURL(blob);
+      html += `<p>output sha256 (provenance only, not a determinism proof):<br><code>${outSha}</code></p>
+        <p><a href="${url}" download="${job.id}.webm" style="color:#7fb0ff">Download ${job.id}.webm</a></p>`;
+    }
+    $('out').innerHTML = html;
+    window.__lastRun = { chain, frames: frameHashes.length };
+  } catch (e) { $('out').textContent = 'Error: ' + e.message; }
+  $('replay').disabled = $('record').disabled = false;
+}
+$('replay').onclick = () => run(false);
+$('record').onclick = () => run(true);
+if (location.hash === '#auto') run(false).then(() => { document.title = 'CHAIN:' + (window.__lastRun ? window.__lastRun.chain : 'none'); });
+</script></body></html>

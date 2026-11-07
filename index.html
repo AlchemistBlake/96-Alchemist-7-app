@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>96-Alchemist-7</title>
+<meta name="author" content="Blake Wayne Allcorn">
+<meta name="sig" content="BWA_15.2003075_SOV_96.7Hz_SHA-BEWA_69912070">
+<style>
+:root{--bg:#0b0f17;--card:#121a27;--line:#2a3850;--fg:#d8e1f0;--dim:#8a9ab5;--acc:#2b5cff;--gold:#e8b84a;--bad:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:28px 18px}
+h1{margin:0;font-size:26px;letter-spacing:.5px}h1 span{color:var(--gold)}
+.sub{color:var(--dim);margin:4px 0 22px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+label{display:block;font-size:13px;color:var(--dim);margin:12px 0 4px}
+textarea,input,select{width:100%;background:#0d1420;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit}
+textarea{min-height:110px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+button,a.btn{display:inline-block;background:var(--acc);color:#fff;border:0;border-radius:8px;padding:11px 16px;font:inherit;font-weight:600;cursor:pointer;text-decoration:none;margin:14px 8px 0 0}
+a.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}
+pre{background:#0d1420;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-size:12px;max-height:280px}
+.err{color:var(--bad);font-size:13px;white-space:pre-line}.note{color:var(--dim);font-size:13px}
+.hide{display:none}footer{color:var(--dim);font-size:11px;text-align:center;margin-top:24px;word-break:break-all}
+</style></head><body><main>
+<h1>96<span>·</span>Alchemist<span>·</span>7</h1>
+<p class="sub">Type a prompt and queue it in your private repo. A worker renders it when you start one. Nothing runs while this page is closed.</p>
+
+<div class="card">
+  <div class="row">
+    <div><label for="mode">Mode</label>
+      <select id="mode"><option value="t2i">Text → Image</option><option value="t2v">Text → Video</option>
+      <option value="i2v">Image → Video</option><option value="kinematic">Kinematic (instant, in-browser)</option></select></div>
+    <div id="durWrap"><label for="dur">Length (seconds, max 30)</label><input id="dur" type="number" min="1" max="30" step="1" value="5"></div>
+    <div><label for="seed">Seed (blank = random)</label><input id="seed" type="number" min="0" max="2147483647" placeholder="auto"></div>
+  </div>
+  <div id="promptWrap"><label for="prompt">Prompt</label>
+    <textarea id="prompt" placeholder="Alchemist mid-air 7-hit combo, cyan plasma and molten gold trails, dusk sanctuary"></textarea></div>
+  <div id="refWrap" class="hide"><label for="ref">Start image: a path in the private repo (e.g. refs/anchor.png) or an https URL</label>
+    <input id="ref" placeholder="refs/anchor.png"></div>
+  <div id="kinWrap" class="hide"><p class="note">Kinematic jobs run instantly in your browser from a frame-timed command list, with no GPU. The player opens with an example job you can edit.</p></div>
+  <div id="err" class="err"></div>
+  <button id="queue">Queue on GitHub</button><a class="btn ghost" id="kinBtn" href="player.html">Open kinematic player</a>
+  <p class="note" id="how">"Queue on GitHub" opens a prefilled new file in <code>jobs/</code>. Press <b>Commit changes</b> while signed in. This page never holds a token.</p>
+</div>
+
+<div class="card">
+  <b>Job file preview</b>
+  <pre id="yaml"></pre>
+</div>
+
+<div class="card">
+  <b>Run and collect</b>
+  <p class="note">1. Open the worker notebook in Colab with a T4 GPU and run all cells. It processes every queued job and then stops.<br>
+  2. When a job file shows <code>status: done</code>, its <code>output_url</code> points to the result on the <code>outputs</code> release.</p>
+  <a class="btn ghost" target="_blank" rel="noopener" href="https://github.com/AlchemistBlake/96-Alchemist-7/tree/main/jobs">Jobs</a>
+  <a class="btn ghost" target="_blank" rel="noopener" href="https://github.com/AlchemistBlake/96-Alchemist-7/releases/tag/outputs">Outputs</a>
+  <a class="btn ghost" target="_blank" rel="noopener" href="https://github.com/AlchemistBlake/96-Alchemist-7/blob/main/notebooks/worker_colab.ipynb">Worker notebook</a>
+  <p class="note">These links are private and only work when you're signed in to GitHub. Today only image jobs are cleared to run; video waits on a GPU smoke test.</p>
+</div>
+<footer>© 2026 Blake Wayne Allcorn. All rights reserved. · BWA_15.2003075_SOV_96.7Hz_SHA-BEWA_69912070</footer>
+</main>
+<script src="app.js"></script>
+</body></html>
